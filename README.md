@@ -14,6 +14,17 @@ If you are using Rails, insert this into your `config/application.rb`:
 
     config.middleware.insert_before ActionDispatch::Cookies, "Rack::Middleware::SessionInjector", :key => '_your_session'
 
+Configuration options:
+
+    # the 'key' for your session (if you have set a custom session key)
+    @session_id_key = options[:key]
+    # the encryption key. omit for a dynamically generated key
+    @token_key = options[:token_key] || generated_token_key
+    # receiver-enforced lifetime of token. default: 5 seconds
+    @enforced_lifetime = options[:token_lifetime]
+    # should we die when we recieve an invalid token, or just continue (without session injection naturally)
+    @die_on_handshake_failure = options[:die_on_handshake_failure]
+
 There are three public methods through which you can initiate the session transfer:
 
     Rack::Middleware::SessionInjector.generate_handshake_token(request, target_domain, lifetime = nil)
