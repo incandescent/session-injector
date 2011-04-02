@@ -5,7 +5,7 @@ If you are developing an application that serves subdomains, the `:all` cookie s
 
 There are a couple of approaches, neither of which are particularly elegant: http://stackoverflow.com/questions/263010/whats-your-favorite-cross-domain-cookie-sharing-approach
 
-This gem provides a middleware that implements a "handshake" protocol based on a token inserted into a URL parameter, which allows you to transparently re-establish a Rack/Rails session accross domains.
+This gem provides a middleware that implements a "handshake" protocol based on a token inserted into a URL parameter, which allows you to transparently re-establish a Rack/Rails session accross domains.  It parses incoming parameters for the handshake/token parameter, decrypts and verifies the token, and sets the session id in the request, thereby re-establishing the session on the target domain.
 
 Usage
 =====
@@ -28,7 +28,7 @@ or tell the middleware to rewrite the Location header on an HTTP redirect respon
  
     Rack::Middleware::SessionInjector.propagate_session(request, 'myotherhost')
 
-or you can just generate the token and use some custom method to convey it the request on the target domain:
+or you can just generate the token and use some custom method to convey it to the request on the target domain:
 
     token = Rack::Middleware::SessionInjector.generate_handshake_token(request, 'myotherhost')
 
