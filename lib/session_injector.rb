@@ -1,7 +1,7 @@
 require 'active_support/message_encryptor'
 require 'uri'
 
-module Whizpage
+module Rack
   module Middleware
     class SessionInjector
     
