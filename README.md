@@ -1,7 +1,7 @@
 Overview
 ========
 
-If you are developing an application that serves subdomains, the `:all` cookie store domain parameter will most likely serve your needs.  However if your application serves distinct domains, you will most likely encounter some difficulties, as secure browsers will not accept "third party cookies" (e.g. any cookies you issue for a different domain will be disregarded).
+If you are developing an application that serves subdomains, the `:all` cookie store domain parameter will most likely serve your needs.  However if your application serves distinct domains, you will most likely encounter some difficulties, as secure browsers will not accept "third party cookies" (i.e. any cookies you issue for a different domain will be disregarded).
 
 There are a couple of approaches, neither of which are particularly elegant: http://stackoverflow.com/questions/263010/whats-your-favorite-cross-domain-cookie-sharing-approach
 
