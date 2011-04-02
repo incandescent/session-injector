@@ -1,0 +1,19 @@
+PATH
+  remote: .
+  specs:
+    session_injector (0.0.1)
+      activesupport (>= 3)
+      rack (>= 1.2)
+
+GEM
+  remote: http://rubygems.org/
+  remote: http://rubygems.org/
+  specs:
+    activesupport (3.0.5)
+    rack (1.2.2)
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  session_injector!
