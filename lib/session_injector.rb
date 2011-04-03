@@ -7,6 +7,10 @@ module Rack
     
       class InvalidHandshake < StandardError; end
       
+      RACK_COOKIE_STRING = 'rack.request.cookie_string'.freeze
+      RACK_COOKIE_HASH = 'rack.request.cookie_hash'.freeze
+      HTTP_COOKIE = 'HTTP_COOKIE'.freeze
+  
       DEFAULT_OPTIONS = {
         # use the AbstractStore default key as our session id key
         # if you have configured a custom session store key, you must
@@ -149,11 +153,54 @@ module Rack
         request = Rack::Request.new(env)
         token = request.params[HANDSHAKE_PARAM]
         return unless token
-        # decrypt the token and set the session id
+
+        # decrypt the token and get the session cookie value
         handshake = decrypt_handshake_token(token, env)
-        #env[@session_id_key] = handshake[:session_id] if handshake
-        request.cookies[@session_id_key] = handshake[:session_id]
+        cookie_value = handshake[:session_id]
+
+        # fix up Rack env
+        # ensure the cookie string is set
+        env[HTTP_COOKIE] = [env[HTTP_COOKIE], "#{@session_id_key}=#{cookie_value}"].compact.join(';')
+        # Rack request object parses cookies on demand and stores data in internal env keys
+        # but the current implementation is not good about writing back through to the env
+        # Since requests objects are transient wrappers we have to be prepared to encounter an env
+        # that may already be initialized with some state
+        # if the cookie string has already been read by Rack, update Rack's internal cookie string variable
+        if env[RACK_COOKIE_STRING]
+          env[RACK_COOKIE_STRING] = [env[RACK_COOKIE_STRING], "#{@session_id_key}=#{cookie_value}"].compact.join(';')
+        end
+        # if the cookie string has already been read by Rack, update Rack's internal cookie hash variable
+        request = Rack::Request.new(env)
+        request.cookies[@session_id_key] = cookie_value # call cookies() to make Rack::Request do its stuff
       end
+      
+
+  def reconstitute_session(env)
+    request = Rack::Request.new(env)
+    token = request.params[Rack::Middleware::SessionInjector::HANDSHAKE_PARAM]
+    puts "GOT HS TOKEN"
+    p token
+    return unless token
+    # decrypt the token and set the session id
+    handshake = decrypt_handshake_token(token, env)
+    puts "HANDSHAKE:"
+    p handshake
+    p "SESSION ID KEY"
+    p @session_id_key
+    
+    
+    
+    p env[HTTP_COOKIE]
+    p env[RACK_COOKIE_STRING]
+    p env[RACK_COOKIE_HASH]
+
+    
+    request.cookies[@session_id_key] = handshake[:session_id]
+    
+    p env[HTTP_COOKIE]
+    p env[RACK_COOKIE_STRING]
+    p env[RACK_COOKIE_HASH]
+  end
       
       # decrypts a handshake token sent to us from a source domain
       def decrypt_handshake_token(token, env)
