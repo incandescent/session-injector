@@ -173,35 +173,7 @@ module Rack
         request = Rack::Request.new(env)
         request.cookies[@session_id_key] = cookie_value # call cookies() to make Rack::Request do its stuff
       end
-      
 
-  def reconstitute_session(env)
-    request = Rack::Request.new(env)
-    token = request.params[Rack::Middleware::SessionInjector::HANDSHAKE_PARAM]
-    puts "GOT HS TOKEN"
-    p token
-    return unless token
-    # decrypt the token and set the session id
-    handshake = decrypt_handshake_token(token, env)
-    puts "HANDSHAKE:"
-    p handshake
-    p "SESSION ID KEY"
-    p @session_id_key
-    
-    
-    
-    p env[HTTP_COOKIE]
-    p env[RACK_COOKIE_STRING]
-    p env[RACK_COOKIE_HASH]
-
-    
-    request.cookies[@session_id_key] = handshake[:session_id]
-    
-    p env[HTTP_COOKIE]
-    p env[RACK_COOKIE_STRING]
-    p env[RACK_COOKIE_HASH]
-  end
-      
       # decrypts a handshake token sent to us from a source domain
       def decrypt_handshake_token(token, env)
         handshake = ActiveSupport::MessageEncryptor.new(@token_key).decrypt_and_verify(token);
