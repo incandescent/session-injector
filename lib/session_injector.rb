@@ -156,6 +156,8 @@ module Rack
 
         # decrypt the token and get the session cookie value
         handshake = decrypt_handshake_token(token, env)
+        return unless handshake
+
         cookie_value = handshake[:session_id]
 
         # fix up Rack env
