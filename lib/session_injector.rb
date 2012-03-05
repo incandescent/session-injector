@@ -4,13 +4,13 @@ require 'uri'
 module Rack
   module Middleware
     class SessionInjector
-    
+
       class InvalidHandshake < StandardError; end
-      
+
       RACK_COOKIE_STRING = 'rack.request.cookie_string'.freeze
       RACK_COOKIE_HASH = 'rack.request.cookie_hash'.freeze
       HTTP_COOKIE = 'HTTP_COOKIE'.freeze
-  
+
       DEFAULT_OPTIONS = {
         # use the AbstractStore default key as our session id key
         # if you have configured a custom session store key, you must
@@ -19,16 +19,16 @@ module Rack
         :token_lifetime => 5000, # five seconds should be enough
         :die_on_handshake_failure => true
       }
-      
+
       # the env key we will use to stash ourselves for downstream access
       SESSION_INJECTOR_KEY = '_session_injector';
       # the env key upstream uses to stash a flag to tell us to propagate a session
       # this is a convenience for manually adding a request parameter to a redirect response location
       SESSION_PROPAGATE_KEY = '_session_propagate';
-      
+
       # the internal parameter we will use to convey the session handshake token
       HANDSHAKE_PARAM = '_hs_';
-    
+
       def initialize(app, options = {})
         @app = app
         options = DEFAULT_OPTIONS.merge(options)
@@ -41,12 +41,12 @@ module Rack
         # architecture, that most likely means the same process/middelware
         # so the key value is not important
         # in fact, non-durability of the token is a security feature
-        generated_token_key = ActiveSupport::SecureRandom.hex(16)
+        generated_token_key = SecureRandom.random_bytes(16).unpack("H*")[0]
         @token_key = options[:token_key] || generated_token_key
         @enforced_lifetime = options[:token_lifetime]
         @die_on_handshake_failure = options[:die_on_handshake_failure]
       end
-      
+
       def call(env)
         env[SESSION_INJECTOR_KEY] = self; # store ourselves for downstream access
         reconstitute_session(env)
@@ -89,7 +89,7 @@ module Rack
         # we could reuse ActionDispatch::Cookies.TOKEN_KEY if it is present but let's not!
         ActiveSupport::MessageEncryptor.new(session_injector.token_key).encrypt_and_sign(handshake);
       end
-      
+
       # generates the handshake parameter key=value string
       def self.generate_handshake_parameter(request, target_domain, lifetime = nil)
         "#{HANDSHAKE_PARAM}=#{generate_handshake_token(request, target_domain, lifetime)}"
@@ -105,19 +105,19 @@ module Rack
         #request.session_options[:id]
         request.cookies[session_id_key]
       end
-      
+
       # return the env key containing the session id
       def session_id_key
         @session_id_key
       end
-      
+
       # return the key we use for encryption and hashing
       def token_key
         @token_key
       end
-      
+
       protected
-            
+
       # validates the handshake against the current environment
       def validate_handshake(handshake, env)
         # is the handshake token expired?
@@ -128,24 +128,24 @@ module Rack
         raise InvalidHandshake, "token has is expired" unless token_age < @enforced_lifetime
         # ok, we can accept this token, but does the source want us to?
         raise InvalidHandshake, "token has outlived requested expiration" if handshake[:requested_lifetime] and token_age > handshake[:requested_lifetime]
-        
+
         # cool, token is not expired
         # is it for the right domain?
         this_request = Rack::Request.new(env)
         raise InvalidHandshake, "target domain mismatch" unless handshake[:tgt_domain] == this_request.host
-        
+
         # it's FOR the right domain
         # is it FROM the right domain?
         # SKIP THIS CHECK
         # 'referrer' is not reliable, is up to the client to send, and we may not always be coming from a redirect
         # raise InvalidHandshake, "source domain mismatch" unless handshake[:src_domain] == URI::parse(this_request.referrer).host
-        
+
         # finally, is this the same client that was associated with the source session?
         # this really should be the case unless some shenanigans is going on (either somebody is replaying the token
         # or there is some client balancing or proxying going on)
         raise InvalidHandshake, "client ip mismatch" unless handshake[:request_ip] = this_request.ip
       end
-      
+
       private
 
       # load and inject any session that might be conveyed in this request
