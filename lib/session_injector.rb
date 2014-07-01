@@ -16,7 +16,7 @@ module Rack
         # if you have configured a custom session store key, you must
         # specify that as the value for this middleware
         :key => ActionDispatch::Session::AbstractStore::DEFAULT_OPTIONS[:key],
-        :token_lifetime => 5000, # five seconds should be enough
+        :token_lifetime => 5, # five seconds should be enough
         :die_on_handshake_failure => true
       }
 
