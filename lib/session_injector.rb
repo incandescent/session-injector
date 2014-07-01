@@ -178,11 +178,11 @@ module Rack
 
       # decrypts a handshake token sent to us from a source domain
       def decrypt_handshake_token(token, env)
-        handshake = ActiveSupport::MessageEncryptor.new(@token_key).decrypt_and_verify(token);
         begin
+          handshake = ActiveSupport::MessageEncryptor.new(@token_key).decrypt_and_verify(token);
           validate_handshake(handshake, env)
           return handshake
-        rescue InvalidHandshake
+        rescue InvalidHandshake, ActiveSupport::MessageVerifier::InvalidSignature
           raise if @die_on_handshake_failure
         end
         return nil
