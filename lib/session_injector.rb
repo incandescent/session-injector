@@ -143,7 +143,7 @@ module Rack
         # finally, is this the same client that was associated with the source session?
         # this really should be the case unless some shenanigans is going on (either somebody is replaying the token
         # or there is some client balancing or proxying going on)
-        raise InvalidHandshake, "client ip mismatch" unless handshake[:request_ip] = this_request.ip
+        raise InvalidHandshake, "client ip mismatch" unless handshake[:request_ip] == this_request.ip
       end
 
       private
