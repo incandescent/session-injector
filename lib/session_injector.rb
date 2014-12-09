@@ -17,7 +17,8 @@ module Rack
         # specify that as the value for this middleware
         :key => ActionDispatch::Session::AbstractStore::DEFAULT_OPTIONS[:key],
         :token_lifetime => 5, # five seconds should be enough
-        :die_on_handshake_failure => true
+        :die_on_handshake_failure => true,
+        :validate_request_ip => true
       }
 
       # the env key we will use to stash ourselves for downstream access
@@ -45,6 +46,7 @@ module Rack
         @token_key = options[:token_key] || generated_token_key
         @enforced_lifetime = options[:token_lifetime]
         @die_on_handshake_failure = options[:die_on_handshake_failure]
+        @validate_request_ip = options[:validate_request_ip]
       end
 
       def call(env)
@@ -149,7 +151,9 @@ module Rack
         # finally, is this the same client that was associated with the source session?
         # this really should be the case unless some shenanigans is going on (either somebody is replaying the token
         # or there is some client balancing or proxying going on)
-        # raise InvalidHandshake, "client ip mismatch" unless handshake[:request_ip] == this_request.ip
+        if @validate_request_ip
+          raise InvalidHandshake, "client ip mismatch" unless handshake[:request_ip] == this_request.ip
+        end
       end
 
       private
