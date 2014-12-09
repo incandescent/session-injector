@@ -16,8 +16,9 @@ module Rack
         # if you have configured a custom session store key, you must
         # specify that as the value for this middleware
         :key => ActionDispatch::Session::AbstractStore::DEFAULT_OPTIONS[:key],
-        :token_lifetime => 5000, # five seconds should be enough
-        :die_on_handshake_failure => true
+        :token_lifetime => 5, # five seconds should be enough
+        :die_on_handshake_failure => true,
+        :validate_request_ip => true
       }
 
       # the env key we will use to stash ourselves for downstream access
@@ -45,6 +46,7 @@ module Rack
         @token_key = options[:token_key] || generated_token_key
         @enforced_lifetime = options[:token_lifetime]
         @die_on_handshake_failure = options[:die_on_handshake_failure]
+        @validate_request_ip = options[:validate_request_ip]
       end
 
       def call(env)
@@ -64,14 +66,14 @@ module Rack
           uri = URI::parse(location)
           prefix = uri.query ? "&" : ""
           # append handshake param to query
-          uri.query = [uri.query, prefix, SessionInjector.generate_handshake_parameter(Rack::Request.new(env), propagate_flag[0], propagate_flag[1])].join
+          uri.query = [uri.query, prefix, SessionInjector.generate_handshake_parameter(Rack::Request.new(env), headers, propagate_flag[0], propagate_flag[1])].join
           headers["Location"] = uri.to_s
         end
         [ status, headers, response]
       end
 
       # generates the handshake token we can send to the target domain
-      def self.generate_handshake_token(request, target_domain, lifetime = nil)
+      def self.generate_handshake_token(request, headers, target_domain, lifetime = nil)
         # retrieve the configured middleware instance
         session_injector = request.env[SESSION_INJECTOR_KEY]
         # note: scheme is not included in handshake
@@ -83,7 +85,7 @@ module Rack
           :tgt_domain => target_domain,
           :token_create_time => Time.now.to_i,
           # the most important thing
-          :session_id => extract_session_id(request, session_injector.session_id_key)
+          :session_id => extract_session_id(request, headers, session_injector.session_id_key)
         }
         handshake[:requested_lifetime] = lifetime if lifetime
         # we could reuse ActionDispatch::Cookies.TOKEN_KEY if it is present but let's not!
@@ -91,8 +93,8 @@ module Rack
       end
 
       # generates the handshake parameter key=value string
-      def self.generate_handshake_parameter(request, target_domain, lifetime = nil)
-        "#{HANDSHAKE_PARAM}=#{generate_handshake_token(request, target_domain, lifetime)}"
+      def self.generate_handshake_parameter(request, headers, target_domain, lifetime = nil)
+        "#{HANDSHAKE_PARAM}=#{generate_handshake_token(request, headers, target_domain, lifetime)}"
       end
 
       # helper that sets a flag to rewrite the location header with session propagation handshake
@@ -101,9 +103,15 @@ module Rack
       end
 
       # find the current session id
-      def self.extract_session_id(request, session_id_key)
-        #request.session_options[:id]
-        request.cookies[session_id_key]
+      def self.extract_session_id(request, headers, session_id_key)
+        forwarded_session_id =
+          if headers.has_key?("Set-Cookie")
+            headers['Set-Cookie'].split("\n").map{|c| c.split(';')[0].split('=')}.find do |key, _|
+              key == session_id_key
+            end[1] rescue nil
+          end
+
+        forwarded_session_id || request.cookies[session_id_key]
       end
 
       # return the env key containing the session id
@@ -143,7 +151,9 @@ module Rack
         # finally, is this the same client that was associated with the source session?
         # this really should be the case unless some shenanigans is going on (either somebody is replaying the token
         # or there is some client balancing or proxying going on)
-        raise InvalidHandshake, "client ip mismatch" unless handshake[:request_ip] = this_request.ip
+        if @validate_request_ip
+          raise InvalidHandshake, "client ip mismatch" unless handshake[:request_ip] == this_request.ip
+        end
       end
 
       private
@@ -178,11 +188,11 @@ module Rack
 
       # decrypts a handshake token sent to us from a source domain
       def decrypt_handshake_token(token, env)
-        handshake = ActiveSupport::MessageEncryptor.new(@token_key).decrypt_and_verify(token);
         begin
+          handshake = ActiveSupport::MessageEncryptor.new(@token_key).decrypt_and_verify(token);
           validate_handshake(handshake, env)
           return handshake
-        rescue InvalidHandshake
+        rescue InvalidHandshake, ActiveSupport::MessageVerifier::InvalidSignature
           raise if @die_on_handshake_failure
         end
         return nil
